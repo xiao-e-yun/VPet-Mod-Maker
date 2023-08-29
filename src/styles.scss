@@ -1,0 +1,72 @@
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+
+  color: #0f0f0f;
+  background-color: #f6f6f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #ccc;
+  width: 100vw;
+  height: 100vh;
+  background: #333;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+}
+
+button {
+  border: none;
+  color: #bbb;
+  font-size: 1em;
+  padding: 0.2em;
+  background: #222;
+  border-radius: 0.3em;
+}
+
+
+label {
+  text-align: center;
+
+  & > h3 {
+    margin: .2em;
+  }
+
+  & > code{
+    padding: .3em .6em .4em;
+    background: #222;
+    border-radius: .3em;
+
+    & > input, & select {
+    background: #333;
+    border: none;
+
+    }
+  }
+
+  & input, & select {
+    border: none;
+    color: #bbb;
+    padding: .2em;
+    background: #222;
+    border-radius: .3em;
+  }
+}

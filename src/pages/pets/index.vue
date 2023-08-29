@@ -4,11 +4,11 @@
 </template>
 
 <script lang="ts" setup>
-import { useRoute } from 'vue-router';
-import { getModInfo } from '../../main';
-const name = useRoute().params.name as string;
-const infoData = await getModInfo(name)
-const pet = infoData.pet
+// import { useRoute } from 'vue-router';
+// import { getModInfo } from '../../main';
+// const name = useRoute().params.name as string;
+// const infoData = await getModInfo(name)
+// const pet = infoData.pet
 </script>
 
 <style lang="scss" module>

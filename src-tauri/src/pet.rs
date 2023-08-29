@@ -39,7 +39,7 @@ pub struct Work {
   #[rename="type"]
   rtype: String,
   name: String,
-  images: Vec<String>
+  images: Vec<String>,
   moneybase: f32,
   moneylevel: f32,
   graph: String,

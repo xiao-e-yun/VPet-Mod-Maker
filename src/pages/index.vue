@@ -38,7 +38,7 @@ async function setPath() {
     let error = await invoke<string | null>("set_path", { path })
     if (error) errorText.value = error
     else {
-      list.value = await invoke<string[]>("load_mod_dir")
+      list.value = await invoke<string[]>("load_mods")
       needPath.value = false
     }
   })

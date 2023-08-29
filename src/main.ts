@@ -6,6 +6,8 @@ import { convertFileSrc } from "@tauri-apps/api/tauri";
 import { invoke } from "@tauri-apps/api";
 import { ModInfo } from "./interface";
 
+import PlaceholderImage from "./assets/placeholder.svg"
+
 import IndexVue from "./pages/index.vue"
 import CreateVue from "./pages/create.vue"
 import InfoVue from "./pages/info.vue";
@@ -52,5 +54,5 @@ export async function saveModInfo(name: string) {
 }
 
 export function loadImageSrc(imagePath?: string) {
-  return imagePath ? convertFileSrc(imagePath) : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg=='
+  return imagePath ? convertFileSrc(imagePath) : PlaceholderImage
 }

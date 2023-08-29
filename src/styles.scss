@@ -4,8 +4,9 @@
   line-height: 24px;
   font-weight: 400;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  fill: #ccc;
+  color: #ccc;
+  background-color: #333;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -21,6 +22,7 @@
 body {
   margin: 0;
   color: #ccc;
+  fill: #ccc;
   width: 100vw;
   height: 100vh;
   background: #333;

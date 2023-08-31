@@ -128,7 +128,6 @@
 
 <script lang="ts" setup>
 import { useRoute } from 'vue-router';
-// import { Food } from '../interface';
 import { getModInfo } from '../main';
 
 const name = useRoute().params.name as string;

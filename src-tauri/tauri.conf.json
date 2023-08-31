@@ -28,6 +28,9 @@
       "protocol": {
         "assetScope": ["**"],
         "asset": true
+      },
+      "fs": {
+        "readDir": true
       }
     },
     "bundle": {

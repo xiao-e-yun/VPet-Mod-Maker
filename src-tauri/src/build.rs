@@ -195,5 +195,5 @@ fn build_info(info: &Info) -> String {
     format!(
         "vupmod#{}:|author#Skip:|gamever#100:|ver#100:|\n",
         info.vupmod
-    ) + &format!("intro#{}:|", info.intro)
+    ) + &format!("intor#{}:|", info.intro)
 }

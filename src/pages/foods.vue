@@ -41,7 +41,7 @@
 import { useRoute } from 'vue-router';
 import { getModInfo, loadImageSrc } from '../main';
 import { dialog } from '@tauri-apps/api';
-import { Food } from '../interface';
+import { Food } from '@interface';
 
 const name = useRoute().params.name as string;
 const infoData = await getModInfo(name)

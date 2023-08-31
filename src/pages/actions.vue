@@ -7,6 +7,8 @@
       <div v-for="(action, index) in actions" :class="$style.card">
 
         <label><input v-model="action.name" :class="$style.title" placeholder="行動名稱"></label>
+        <small v-if="isSuperModel(getSuperModelValue(action))">超模警告</small>
+
         <h2>基礎設置</h2>
         <label>
           學習: <select v-model="action.type">
@@ -34,7 +36,7 @@
           {{ action.type === "Work" ? "$" : "Exp" }} (等級10,狀態良好)<br>
           <label>公式: <input value="0.05 * (基礎倍率 * 效率 + 等級 * 等級倍率 * (效率 - 0.5) * 2)" disabled></label>
         </p>
-        
+                
         <button @click="actions.splice(index, 1)"  :class="$style.remove">刪除</button>
 
       </div>
@@ -45,9 +47,11 @@
 <script lang="ts" setup>
 import { useRoute } from 'vue-router';
 import { getModInfo } from '../main';
+import { Action } from '@interface';
 
 const name = useRoute().params.name as string;
 const actions = (await getModInfo(name)).actions
+
 
 function createNewAction() {
   actions.push({
@@ -63,6 +67,27 @@ function createNewAction() {
     time: 60
   })
 }
+
+function getSuperModelValue(action: Action): number {
+
+  let food = Math.pow(action.food * 2 + 1,2) / 6
+  let drink = Math.pow(action.drink * 2 + 1,2) / 9
+  let feeling = Math.pow(action.feeling * 2 + 1,2) / 12
+  let level = Math.sqrt(action.levelLimit / 2 + 1) / 4
+  
+  let spend = (food + drink + feeling) * level - 0.5
+
+
+  let moneyBase = action.money[0]
+  let moneyLevel = action.money[1]
+  let finishBonus = action.finishBonus
+  
+  let get = (moneyBase + moneyLevel * 10) * (moneyLevel + 1) *  (1 + finishBonus / 2) / (action.type === "Work" ? 1 : 12) 
+  
+  return get / spend
+}
+
+function isSuperModel(value: number) { return value > 2 || value < 0 }
 </script>
 
 <style lang="scss" module>

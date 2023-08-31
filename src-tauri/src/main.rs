@@ -3,6 +3,7 @@
 
 mod info;
 mod build;
+pub mod pet;
 
 use std::{
     fs::{create_dir, read, read_dir, File},

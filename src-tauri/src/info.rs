@@ -1,21 +1,22 @@
-use std::{collections::BTreeMap, fs::{read, File}, path::PathBuf, io::Write};
+use std::{collections::{BTreeMap, HashMap}, fs::{read, File}, path::PathBuf, io::Write};
 
 use serde::{Deserialize, Serialize};
 
-use crate::config;
+use crate::{config, pet::Pet};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all="camelCase")]
 pub struct Info {
   pub vupmod: String,
   pub icon: String,
   pub author: String,
   pub intro: String,
-  #[serde(rename = "foodImage")]
   pub food_image: String,
   pub foods: Vec<Food>,
   pub clicktexts: Vec<ClickText>,
   pub lowtexts: Vec<LowText>,
   pub actions: Vec<Action>,
+  pub pets: Vec<Pet>,
 }
 
 #[tauri::command]
@@ -62,6 +63,7 @@ pub struct Food {
 ///
 /// https://github.com/LorisYounger/VPet/blob/main/VPet-Simulator.Core/Graph/GraphHelper.cs#L89
 #[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all="camelCase")]
 pub struct Action {
   pub name: String,
   pub money: (f32,f32),
@@ -71,9 +73,7 @@ pub struct Action {
   pub food: f32,
   pub drink: f32,
   pub feeling: f32,
-  #[serde(rename="levelLimit")]
   pub level_limit: u32,
-  #[serde(rename="finishBonus")]
   pub finish_bonus: f32,
   pub time: u32,
 }

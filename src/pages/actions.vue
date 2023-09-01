@@ -68,7 +68,7 @@ function createNewAction() {
     name: '',
     money: [10, 0.5],
     type: 'Work',
-    graph: 'workone',
+    graph: {},
     food: 3,
     drink: 2,
     feeling: 0,

@@ -121,14 +121,31 @@ impl Build for Info {
         //
 
         if !self.actions.is_empty() {
-            let mut data = String::from(
-                "pet#默认虚拟桌宠:|intro#虚拟主播模拟器默认人物形象:|path#vup:|petname#萝莉斯:|\n",
-            );
-            for action in self.actions.iter() {
-                data += &action.build(builder).unwrap_or_default();
-            }
+            let pets_name = self.pets.iter().map(|pet| pet.name.clone());
+            for (index, name) in pets_name.chain([String::from("萝莉斯")]).enumerate() {
+                let mut used = false;
+                let mut data = format!("pet#{}:|\n", name);
 
-            fs::write(builder.pet.join("vup.action.lps"), data.as_bytes()).unwrap();
+                for action in self.actions.iter() {
+                    if let Some(line) = action.build(builder) {
+                        data += &line;
+                        used = true;
+                    }
+                }
+
+                if used {
+                    let id = if name == "萝莉斯" {
+                        String::from("vup")
+                    } else {
+                        index.to_string()
+                    };
+                    fs::write(
+                        builder.pet.join(format!("{}.action.lps", id)),
+                        data.as_bytes(),
+                    )
+                    .unwrap();
+                }
+            }
         }
 
         None
@@ -231,9 +248,11 @@ impl Build for ClickText {
 }
 
 impl Build for Action {
-    fn build(&self, _: &mut Builder) -> Option<String> {
-        Some(format!("work:|Type#{:?}:|Name#{}:|MoneyBase#{}:|MoneyLevel#{}:|Graph#{}:|StrengthFood#{}:|StrengthDrink#{}:|Feeling#{}:|Time#{}:|FinishBonus#{}:|LevelLimit#{}:|BorderBrush#000000:|Background#413d39:|ButtonBackground#322e2b:|ButtonForeground#FFFFFF:|Foreground#ccbdad:|Left#113:|Top#315:|Width#280:|\n",
-    self.atype,self.name,self.money.0,self.money.1,self.graph,self.food,self.drink,self.feeling,self.time,self.finish_bonus,self.level_limit))
+    fn build(&self, builder: &mut Builder) -> Option<String> {
+        self.graph.get(&builder.pet_index).map(|graph|{
+        format!("work:|Type#{:?}:|Name#{}:|MoneyBase#{}:|MoneyLevel#{}:|Graph#{}:|StrengthFood#{}:|StrengthDrink#{}:|Feeling#{}:|Time#{}:|FinishBonus#{}:|LevelLimit#{}:|BorderBrush#000000:|Background#413d39:|ButtonBackground#322e2b:|ButtonForeground#FFFFFF:|Foreground#ccbdad:|Left#113:|Top#315:|Width#280:|\n",
+        self.atype,self.name,self.money.0,self.money.1,graph,self.food,self.drink,self.feeling,self.time,self.finish_bonus,self.level_limit)
+      })
     }
 }
 

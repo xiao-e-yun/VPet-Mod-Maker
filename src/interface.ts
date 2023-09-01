@@ -47,7 +47,7 @@ export interface Action {
   name: string,
   money: [number, number],
   type: "Work" | "Study" | "Play",
-  graph: string,
+  graph: Record<number,string>,
   food: number,
   drink: number,
   feeling: number,

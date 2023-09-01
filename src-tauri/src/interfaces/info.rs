@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::interfaces::pet::Pet;
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +45,8 @@ pub struct Action {
     pub money: (f32, f32),
     #[serde(rename = "type")]
     pub atype: ActionType,
-    pub graph: String,
+    /// 0 = default, 1 => pets[0]
+    pub graph: HashMap<usize,String>,
     pub food: f32,
     pub drink: f32,
     pub feeling: f32,

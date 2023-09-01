@@ -115,7 +115,7 @@ impl Build for Info {
         if !self.pets.is_empty() {
             for (index, pet) in self.pets.iter().enumerate() {
                 builder.pet_index = index;
-                pet.build(builder)?;
+                pet.build(builder);
             }
         }
         //
@@ -128,12 +128,7 @@ impl Build for Info {
                 data += &action.build(builder).unwrap_or_default();
             }
 
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(builder.pet.join("vup.action.lps"))
-                .unwrap();
-            file.write_all(data.as_bytes()).unwrap();
+            fs::write(builder.pet.join("vup.action.lps"), data.as_bytes()).unwrap();
         }
 
         None
@@ -277,10 +272,6 @@ impl Build for Pet {
             self.duration.state, self.duration.squat, self.duration.boring, self.duration.sleep
         );
 
-        
-
-
-
         //
         let args = String::from("touchhead:|px#159:|py#16:|sw#189:|sh#178:|\n")+
         "touchraised:|happy_px#0:|happy_py#50:|happy_sw#500:|happy_sh#200:|nomal_px#0:|nomal_py#50:|nomal_sw#500:|nomal_sh#200:|poorcondition_px#0:|poorcondition_py#50:|poorcondition_sw#500:|poorcondition_sh#200:|ill_px#0:|ill_py#200:|ill_sw#500:|ill_sh#300:|\n"+
@@ -289,8 +280,6 @@ impl Build for Pet {
             "pet#{}:|intro#{}:|path#{}:|petname#{}:|\n{}\n{}",
             self.name, self.intro, index, self.name, args, duration
         );
-        
-
 
         // let lps = format!(
         //     "pet#{}:|intro#{}:|path#{}:|petname#{}:|\ntouchhead:|{}\ntouchraised:|{}\nraisepoint:|{}\n{}",

@@ -30,7 +30,8 @@
         "asset": true
       },
       "fs": {
-        "readDir": true
+        "readDir": true,
+        "scope": ["**/*"]
       }
     },
     "bundle": {

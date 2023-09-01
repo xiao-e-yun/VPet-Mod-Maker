@@ -22,7 +22,7 @@ const name = computed(() => route.params.name as string);
     </div>
     <div>
       <template v-if="name">
-        <button @click="invoke('build_mod', { name })" title="更新">更新</button>
+        <button @click="invoke('build', { name })" title="更新">更新</button>
       </template>
     </div>
   </aside>

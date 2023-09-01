@@ -1,199 +1,436 @@
 use std::{
-    fs::{self, File},
+    fs::{self, create_dir, OpenOptions},
     io::Write,
     path::PathBuf,
 };
 
-use crate::{
-    config,
-    info::{get_info, ClickText, ClickTextState, Food, Info, LowText, Action},
+use fs_extra::{copy_items, dir};
+
+use crate::interfaces::{
+    info::{Action, ClickText, ClickTextState, Food, Info, LowText},
+    pet::{Pet, PetStatus, Rect, Vector},
 };
+/// Global Var
+#[derive(Debug, Default)]
+struct Builder {
+    path: PathBuf,
+    food: PathBuf,
+    text: PathBuf,
+    pet: PathBuf,
+    pet_index: usize,
+}
+
+trait Build {
+    fn build(&self, builder: &mut Builder) -> Option<String>;
+}
 
 #[tauri::command]
-pub fn build_mod(name: String) -> Option<String> {
-    let data = get_info(name.clone());
+pub fn build(name: String) -> Option<String> {
+    let info = Info::load(&name);
+    let mut builder = Builder::default();
+    builder.path = Info::path().join(name);
+    info.build(&mut builder)
+}
 
-    let path = PathBuf::from(config().path.unwrap()).join("mod").join(name);
-    if path.exists() {
-      let is_error = fs::remove_dir_all(&path).is_err();
-      if is_error {
-        return Some(String::from("請關閉 VPet 再嘗試"));
-      }
-    }
-    fs::create_dir(&path).unwrap();
+impl Build for Info {
+    fn build(&self, builder: &mut Builder) -> Option<String> {
+        let path = builder.path.clone();
 
-    //build info.lps
-    let mut info_file = File::create(path.join("info.lps")).unwrap();
-    info_file.write_all(build_info(&data).as_bytes()).unwrap();
+        if path.exists() {
+            let is_error = fs::remove_dir_all(&path).is_err();
+            if is_error {
+                return Some(String::from("請關閉 VPet 再嘗試"));
+            }
+        }
+        fs::create_dir(&path).unwrap();
 
-    if !data.icon.is_empty() {
-        fs::copy(data.icon, path.join("icon.png")).unwrap();
-    };
+        // info
+        {
+            println!("Write info.lps");
+            let text = format!(
+                "vupmod#{}:|author#{}:|gamever#100:|ver#100:|\nintro#{}:|",
+                self.vupmod, self.author, self.intro
+            );
+            fs::write(path.join("info.lps"), text).unwrap();
 
-    if data.foods.len() > 0 {
-        let food_path = path.join("food");
-        let mut image_path = path.join("image");
-        fs::create_dir(&food_path).unwrap();
-        fs::create_dir(&image_path).unwrap();
+            if !self.icon.is_empty() {
+                println!("Copy icon image [{}]", self.icon);
+                fs::copy(self.icon.clone(), path.join("icon.png")).unwrap();
+            }
+        }
+        //
 
-        if !data.food_image.is_empty() {
-            fs::copy(&data.food_image, image_path.join("food.png")).unwrap();
-            //copy other files to .../image/food/
-            image_path = image_path.join("food");
-            fs::create_dir(&image_path).unwrap();
+        // food
+        if !self.foods.is_empty() {
+            println!("Create food folder");
+            builder.food = path.join("image");
+            fs::create_dir(builder.food.clone()).unwrap();
+
+            if !self.food_image.is_empty() {
+                println!("Copy food default image");
+                fs::copy(self.food_image.clone(), builder.food.join("food.png")).unwrap();
+                builder.food = builder.food.join("food");
+            }
+
+            println!("Create food image folder");
+            fs::create_dir(builder.food.clone()).unwrap();
+
+            println!("Write food/0.lps");
+            let path = path.join("food");
+            let mut text = String::new();
+            for food in self.foods.iter() {
+                text += &food.build(builder).unwrap();
+            }
+            fs::create_dir(&path).unwrap();
+            fs::write(path.join("0.lps"), text).unwrap();
+        }
+        //
+
+        //
+        if !self.clicktexts.is_empty() || !self.lowtexts.is_empty() {
+            println!("Create text folder");
+            builder.text = builder.path.join("text");
+            fs::create_dir(&builder.text).unwrap();
+
+            let mut data = String::new();
+            for clicktext in self.clicktexts.iter() {
+                data += &clicktext.build(builder).unwrap_or_default();
+            }
+
+            for lowtext in self.lowtexts.iter() {
+                data += &lowtext.build(builder).unwrap_or_default();
+            }
+
+            println!("Write text/0.lps");
+            fs::write(builder.text.join("0.lps"), data).unwrap();
+        }
+        //
+
+        if !self.pets.is_empty() || !self.actions.is_empty() {
+            builder.pet = path.join("pet");
+            fs::create_dir(&builder.pet).unwrap();
         }
 
-        let mut foods_info = String::new();
-        for food in data.foods.iter() {
-            foods_info += &build_food(food);
-            // copy image to /image/{name}.png
-            if !food.image.is_empty() {
-                fs::copy(&food.image, image_path.join(food.name.clone() + ".png")).unwrap();
+        //
+        if !self.pets.is_empty() {
+            for (index, pet) in self.pets.iter().enumerate() {
+                builder.pet_index = index;
+                pet.build(builder)?;
+            }
+        }
+        //
+
+        if !self.actions.is_empty() {
+            let mut data = String::from(
+                "pet#默认虚拟桌宠:|intro#虚拟主播模拟器默认人物形象:|path#vup:|petname#萝莉斯:|\n",
+            );
+            for action in self.actions.iter() {
+                data += &action.build(builder).unwrap_or_default();
+            }
+
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(builder.pet.join("vup.action.lps"))
+                .unwrap();
+            file.write_all(data.as_bytes()).unwrap();
+        }
+
+        None
+    }
+}
+
+impl Build for Food {
+    fn build(&self, _: &mut Builder) -> Option<String> {
+        let mut values = String::new();
+        push_value(&mut values, "price", self.price);
+        push_value(&mut values, "Exp", self.exp);
+        push_value(&mut values, "Strength", self.strength);
+        push_value(&mut values, "StrengthDrink", self.drink);
+        push_value(&mut values, "StrengthFood", self.food);
+        push_value(&mut values, "Health", self.health);
+        push_value(&mut values, "Feeling", self.feeling);
+        push_value(&mut values, "Likability", self.likability);
+
+        fn push_value(values: &mut String, key: &'static str, value: f32) {
+            if value.abs() > f32::EPSILON {
+                *values += &format!("{}#{}:|", key, value);
+            }
+        }
+
+        Some(format!(
+            "food:|type#{}:|name#{}:|desc#{}:|{}\n",
+            self.ftype, self.name, self.desc, values
+        ))
+    }
+}
+
+impl Build for LowText {
+    fn build(&self, _: &mut Builder) -> Option<String> {
+        let main = if self.main {
+            "LowFoodText"
+        } else {
+            "LowDrinkText"
+        };
+        let mode = if self.mode { "H" } else { "L" };
+
+        Some(format!(
+            "{}:|Mode#{}:|Strength#{}:|Like#{}:|Text#{}:|\n",
+            main, mode, self.strength, self.like, self.text
+        ))
+    }
+}
+
+impl Build for ClickText {
+    fn build(&self, _: &mut Builder) -> Option<String> {
+        let (mut like_min, mut like_max) = self.like.clone();
+
+        let mode = {
+            let mut value = 0b0000;
+            for boolean in self.mode.iter().cloned().rev() {
+                value = (value + boolean as u8) << 1
+            }
+            value >> 1
+        };
+
+        let daytime = {
+            let mut value = 0b0000;
+            for boolean in self.daytime.iter().cloned().rev() {
+                value = (value + boolean as u8) << 1
+            }
+            value >> 1
+        };
+
+        let like = {
+            let mut like = String::new();
+
+            like_min = like_min.chars().filter(|c| c.is_digit(10)).collect();
+            if !like_min.is_empty() {
+                like += &format!("LikeMin#{}:|", like_min)
             };
-        }
 
-        File::create(food_path.join("0.lps"))
-            .unwrap()
-            .write_all(foods_info.as_bytes())
-            .unwrap();
-    }
+            like_max = like_max.chars().filter(|c| c.is_digit(10)).collect();
+            if !like_max.is_empty() {
+                like += &format!("LikeMax#{}:|", like_max)
+            };
 
-    if data.clicktexts.len() + data.lowtexts.len() > 0 {
-        let text_path = path.join("text");
-        fs::create_dir(&text_path).unwrap();
-
-        let mut text_info = String::new();
-        for text in data.clicktexts.iter() {
-            text_info += &build_clicktext(text);
-        }
-
-        for text in data.lowtexts.iter() {
-            text_info += &build_lowtext(text);
-        }
-        File::create(text_path.join("0.lps"))
-            .unwrap()
-            .write_all(text_info.as_bytes())
-            .unwrap();
-    }
-
-    if data.actions.len() > 0 {
-      let action_path = path.join("pet");
-      fs::create_dir(&action_path).unwrap();
-
-  let mut action_info = String::from("pet#默认虚拟桌宠:|intor#虚拟主播模拟器默认人物形象:|path#vup:|petname#萝莉斯:|\n");
-  for action in data.actions.iter() {
-    action_info += &build_action(action)
-  };
-
-
-      fs::create_dir(action_path.join("vup")).unwrap();
-      File::create(action_path.join("vup.actions.lps"))
-      .unwrap()
-      .write_all(action_info.as_bytes())
-      .unwrap();
-    }
-
-    None
-}
-
-fn build_food(food: &Food) -> String {
-    let mut values = String::new();
-    push_value(&mut values, "price", food.price);
-    push_value(&mut values, "Exp", food.exp);
-    push_value(&mut values, "Strength", food.strength);
-    push_value(&mut values, "StrengthDrink", food.drink);
-    push_value(&mut values, "StrengthFood", food.food);
-    push_value(&mut values, "Health", food.health);
-    push_value(&mut values, "Feeling", food.feeling);
-    push_value(&mut values, "Likability", food.likability);
-
-    
-    fn push_value(values: &mut String, key: &'static str, value: f32) {
-        if value.abs() > f32::EPSILON {
-            *values += &format!("{}#{}:|", key, value);
-        }
-    }
-
-    format!(
-        "food:|type#{}:|name#{}:|desc#{}:|{}\n",
-        food.ftype, food.name, food.desc, values
-    )
-}
-
-fn build_clicktext(clicktext: &ClickText) -> String {
-    let (mut like_min, mut like_max) = clicktext.like.clone();
-
-    let mode = {
-        let mut value = 0b0000;
-        for boolean in clicktext.mode.iter().cloned().rev() {
-            value = (value + boolean as u8) << 1
-        }
-        value >> 1
-    };
-
-    let daytime = {
-        let mut value = 0b0000;
-        for boolean in clicktext.daytime.iter().cloned().rev() {
-            value = (value + boolean as u8) << 1
-        }
-        value >> 1
-    };
-
-    let like = {
-        let mut like = String::new();
-
-        like_min = like_min.chars().filter(|c| c.is_digit(10)).collect();
-        if !like_min.is_empty() {
-            like += &format!("LikeMin#{}:|", like_min)
+            like
         };
 
-        like_max = like_max.chars().filter(|c| c.is_digit(10)).collect();
-        if !like_max.is_empty() {
-            like += &format!("LikeMax#{}:|", like_max)
+        let state = {
+            let mut state = format!("State#{:?}:|", self.state);
+            if self.state == ClickTextState::Work {
+                state += &format!("Working#{}:|", self.working);
+            }
+            state
         };
 
-        like
-    };
+        Some(format!(
+            "clicktext:|Text#{}:|Mode#{}:|daytime#{}:|{}\n",
+            self.text,
+            mode,
+            daytime,
+            like + &state,
+        ))
+    }
+}
 
-    let state = {
-        let mut state = format!("State#{:?}:|", clicktext.state);
-        if clicktext.state == ClickTextState::Work {
-            state += &format!("Working#{}:|", clicktext.working);
+impl Build for Action {
+    fn build(&self, _: &mut Builder) -> Option<String> {
+        Some(format!("work:|Type#{:?}:|Name#{}:|MoneyBase#{}:|MoneyLevel#{}:|Graph#{}:|StrengthFood#{}:|StrengthDrink#{}:|Feeling#{}:|Time#{}:|FinishBonus#{}:|LevelLimit#{}:|BorderBrush#000000:|Background#413d39:|ButtonBackground#322e2b:|ButtonForeground#FFFFFF:|Foreground#ccbdad:|Left#113:|Top#315:|Width#280:|\n",
+    self.atype,self.name,self.money.0,self.money.1,self.graph,self.food,self.drink,self.feeling,self.time,self.finish_bonus,self.level_limit))
+    }
+}
+
+///
+///
+///
+impl Build for Pet {
+    fn build(&self, builder: &mut Builder) -> Option<String> {
+        let path = builder.pet.join(format!("{}.lps", builder.pet_index));
+        let index = builder.pet_index;
+
+        println!("Build pet [{}]", self.name);
+
+        // let mut touchhead = String::new();
+        // let mut touchraised = String::new();
+        // let mut raisepoint = String::new();
+        // for (key, val) in ["px", "py", "sw", "sh"].zip(self.touchhead.get()) {
+        //     touchhead += &format!("{}#{}:|", key, val);
+        // }
+
+        // for ((status, raisepoint_value), touchraised_value) in
+        //     self.raisepoint.iter().zip(self.touchraised.get())
+        // {
+        //     let vector = touchraised_value.clone().unwrap_or_default();
+        //     for (key, val) in ["px", "py", "sw", "sh"].zip(vector.get()) {
+        //         touchraised += &format!("{}_{}#{}:|", status, key, val)
+        //     }
+        //     let vector = raisepoint_value.clone().unwrap_or_default();
+        //     for (key, val) in ["x", "y"].zip(vector.get()) {
+        //         raisepoint += &format!("{}_{}#{}:|", status, key, val)
+        //     }
+        // }
+
+        let duration = format!(
+            "duration:|state#{}:|squat#{}:|boring#{}:|sleep#{}:|",
+            self.duration.state, self.duration.squat, self.duration.boring, self.duration.sleep
+        );
+
+        
+
+
+
+        //
+        let args = String::from("touchhead:|px#159:|py#16:|sw#189:|sh#178:|\n")+
+        "touchraised:|happy_px#0:|happy_py#50:|happy_sw#500:|happy_sh#200:|nomal_px#0:|nomal_py#50:|nomal_sw#500:|nomal_sh#200:|poorcondition_px#0:|poorcondition_py#50:|poorcondition_sw#500:|poorcondition_sh#200:|ill_px#0:|ill_py#200:|ill_sw#500:|ill_sh#300:|\n"+
+        "raisepoint:|happy_x#290:|happy_y#128:|nomal_x#290:|nomal_y#128:|poorcondition_x#290:|poorcondition_y#128:|ill_x#225:|ill_y#115:|";
+        let lps = format!(
+            "pet#{}:|intro#{}:|path#{}:|petname#{}:|\n{}\n{}",
+            self.name, self.intro, index, self.name, args, duration
+        );
+        
+
+
+        // let lps = format!(
+        //     "pet#{}:|intro#{}:|path#{}:|petname#{}:|\ntouchhead:|{}\ntouchraised:|{}\nraisepoint:|{}\n{}",
+        //     self.name, self.intro, index, self.name, touchhead, touchraised, raisepoint, duration
+        // );
+
+        println!("Write {}.lps", builder.pet_index);
+        fs::write(path, lps).unwrap();
+
+        //images
+        //images
+        //images
+        let path = builder.pet.join(format!("{}", builder.pet_index));
+        fs::create_dir(&path).unwrap();
+
+        let animations = &self.animations;
+
+        let single = [
+            ("default", &animations.default),
+            ("startup", &animations.start),
+            ("shutdown", &animations.shutdown),
+            ("raise/raised_dynamic", &animations.raised_dynamic),
+            ("switch_up", &animations.switch_up),
+            ("switch_down", &animations.switch_down),
+            ("switch_hunger", &animations.switch_hunger),
+            ("switch_thirsty", &animations.switch_thirsty),
+            ("state_one", &animations.state_one),
+            ("state_two", &animations.state_two),
+            ("drink/front", &animations.drink_front),
+            ("drink/back", &animations.drink_back),
+            ("eat/front", &animations.eat_front),
+            ("eat/back", &animations.eat_back),
+        ];
+
+        for (name, status) in single {
+            for (status, animation) in status.iter() {
+                if let Some(animation) = animation {
+                    let path: PathBuf = path.join(name).join(status);
+                    fs::create_dir_all(&path).unwrap();
+                    for (index, folder) in animation.0.iter().enumerate() {
+                        let output = path.join(format!("{}", index));
+                        copy_dir(folder, &output);
+                    }
+                }
+            }
         }
-        state
-    };
 
-    format!(
-        "clicktext:|Text#{}:|Mode#{}:|daytime#{}:|{}\n",
-        clicktext.text,
-        mode,
-        daytime,
-        like + &state,
-    )
+        let loops = [
+            ("music", &animations.music),
+            ("sleep", &animations.sleep),
+            ("raise/raised_static", &animations.raised_static),
+            ("touch_body", &animations.touch_body),
+            ("touch_head", &animations.touch_head),
+            ("say/self", &animations.say_self),
+            ("say/serious", &animations.say_serious),
+            ("say/shining", &animations.say_shining),
+        ];
+
+        for (name, status) in loops {
+            for (status, animation) in status.iter() {
+                if let Some(animation) = animation {
+                    for (mode, vector) in [
+                        ("a", &animation.start),
+                        ("b", &animation.repeat),
+                        ("c", &animation.finish),
+                    ] {
+                        if let Some(animation) = vector {
+                            let path: PathBuf = path.join(name).join(status).join(mode);
+                            fs::create_dir_all(&path).unwrap();
+                            for (index, folder) in animation.iter().enumerate() {
+                                let output = path.join(format!("{}", index));
+                                copy_dir(folder, &output);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let custom = [
+            ("move", &animations.moving),
+            ("idel", &animations.idel),
+            ("work", &animations.work),
+        ];
+
+        for (name, animations) in custom {
+            for (key, status) in animations.iter() {
+                for (status, animation) in status.iter() {
+                    if let Some(animation) = animation {
+                        for (mode, vector) in [
+                            ("a", &animation.start),
+                            ("b", &animation.repeat),
+                            ("c", &animation.finish),
+                        ] {
+                            if let Some(animation) = vector {
+                                let path: PathBuf =
+                                    path.join(name).join(key).join(status).join(mode);
+                                fs::create_dir_all(&path).unwrap();
+                                for (index, folder) in animation.iter().enumerate() {
+                                    let output = path.join(format!("{}", index));
+                                    copy_dir(folder, &output);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        fn copy_dir(from: &String, to: &PathBuf) {
+            fs::create_dir(to).unwrap();
+            for (index, file) in fs::read_dir(from).unwrap().enumerate() {
+                let file = file.unwrap();
+                fs::copy(file.path(), to.join(index.to_string() + "_100.png")).unwrap();
+            }
+        }
+
+        None
+    }
 }
 
-fn build_lowtext(lowtext: &LowText) -> String {
-    let main = if lowtext.main {
-        "LowFoodText"
-    } else {
-        "LowDrinkText"
-    };
-    let mode = if lowtext.mode { "H" } else { "L" };
-
-    format!(
-        "{}:|Mode#{}:|Strength#{}:|Like#{}:|Text#{}:|\n",
-        main, mode, lowtext.strength, lowtext.like, lowtext.text
-    )
+///
+///
+///
+impl Rect {
+    fn get(&self) -> [u32; 4] {
+        [self.0, self.1, self.2, self.3]
+    }
+}
+impl Vector {
+    fn get(&self) -> [u32; 2] {
+        [self.0, self.1]
+    }
 }
 
-fn build_action(action: &Action) -> String {
-  format!("work:|Type#{:?}:|Name#{}:|MoneyBase#{}:|MoneyLevel#{}:|Graph#{}:|StrengthFood#{}:|StrengthDrink#{}:|Feeling#{}:|Time#{}:|FinishBonus#{}:|LevelLimit#{}:|BorderBrush#000000:|Background#413d39:|ButtonBackground#322e2b:|ButtonForeground#FFFFFF:|Foreground#ccbdad:|Left#113:|Top#315:|Width#280:|\n",
-  action.atype,action.name,action.money.0,action.money.1,action.graph,action.food,action.drink,action.feeling,action.time,action.finish_bonus,action.level_limit)
-}
-
-fn build_info(info: &Info) -> String {
-    format!(
-        "vupmod#{}:|author#Skip:|gamever#100:|ver#100:|\n",
-        info.vupmod
-    ) + &format!("intor#{}:|", info.intro)
+impl<T> PetStatus<T> {
+    fn get(&self) -> [&Option<T>; 4] {
+        [&self.happy, &self.nomal, &self.poorcondition, &self.ill]
+    }
+    fn iter(&self) -> [(&str, &Option<T>); 4] {
+        ["happy", "nomal", "poorcondition", "ill"].zip(self.get())
+    }
 }

@@ -6,12 +6,8 @@
     </nav>
     <main :class="$style.main" @click="setImagesFolders">
       <PlayerVue :player="player" />
-      <StatusVue
-        :control="control"
-        :is-single="isSingle"
-        :type="currentInfo[2]"
-        :random-length="randomLength"
-      />
+      <StatusVue :control="control" :is-single="isSingle" :type="currentInfo[2]" :random-length="randomLength"
+        :custom-list="currentCustomList" />
     </main>
   </div>
 </template>
@@ -37,11 +33,11 @@ const animationList = [
   ["default", "默認", AnimationType.Single],
   ["start", "開啟", AnimationType.Single],
   ["shutdown", "關閉", AnimationType.Single],
-  
+
   //
   ["sleep", "睡覺", AnimationType.Loop],
   ["music", "音樂", AnimationType.Loop],
-  
+
   //
   ["stateOne", "坐下.1", AnimationType.Single],
   ["stateTwo", "坐下.2", AnimationType.Single],
@@ -50,16 +46,19 @@ const animationList = [
   ["saySelf", "說話.自己", AnimationType.Loop],
   ["saySerious", "說話", AnimationType.Loop],
   ["sayShining", "說話", AnimationType.Loop],
-  
+
+  ["eat", "吃東西", AnimationType.Layer],
+  ["drink", "喝東西", AnimationType.Layer],
+
   //特殊控制
   ["switchUp", "狀態變好", AnimationType.Single],
   ["switchDown", "狀態變差", AnimationType.Single],
-  ["switchHunger", "飢餓", AnimationType.Layer],
-  ["switchThirsty", "口渴", AnimationType.Layer],
-  
-  ["raisedDynamic", "抓起", AnimationType.Loop],
-  ["raisedStatic", "抓起.放棄", AnimationType.Single],
-  
+  ["switchHunger", "飢餓", AnimationType.Single],
+  ["switchThirsty", "口渴", AnimationType.Single],
+
+  ["raisedStatic", "抓起", AnimationType.Loop],
+  ["raisedDynamic", "抓起.放棄", AnimationType.Single],
+
   //自訂
   ["move", "移動", AnimationType.Cutsom],
   ["idel", "掛機", AnimationType.Cutsom],
@@ -67,32 +66,65 @@ const animationList = [
 
 ] as [string, string, AnimationType][]
 
+const lastInfoId = ref("")
 const currentInfo = ref(animationList[0])
 const currentAnimation = ref<PetStatus<PetAnimation>>()
-  const randomLength = ref(0)
-  const isSingle = computed(()=>currentInfo.value[2] === AnimationType.Single)
-  
+const currentCustomList = ref<[string, PetStatus<PetAnimation>][]>([])
+const randomLength = ref(0)
+//Single or Layer
+const isSingle = computed(() => currentInfo.value[2] === AnimationType.Single || currentInfo.value[2] === AnimationType.Layer)
 
-watch(currentInfo,([id,_,type]) => {
+
+watch(currentInfo, ([id, _, type]) => {
+  changeTargetAnimation(id, type)
+  dispaly()
+}, { immediate: true })
+
+watch(control.status, () => {
+  const info = currentInfo.value
+
+  if (info[2] === AnimationType.Layer || info[2] === AnimationType.Cutsom) {
+    changeTargetAnimation(info[0], info[2])
+  }
+
+  dispaly()
+})
+
+function changeTargetAnimation(id: string, type: AnimationType) {
+
+  if (lastInfoId.value !== id) control.reset()
+  lastInfoId.value = id
+
   if (type === AnimationType.Loop || type === AnimationType.Single) {
 
-    currentAnimation.value = animations[id as keyof PetAnimations]
-    control.reset()
-    dispaly()
+    currentAnimation.value = animations[id as keyof PetAnimations] as PetStatus<PetAnimation>
 
   } else if (type === AnimationType.Layer) {
 
+    const layerId = id + (control.status.layer === "front" ? "Front" : "Back")
+    currentAnimation.value = animations[layerId as keyof PetAnimations] as PetStatus<PetAnimation>
+
+  } else { //AnimationType.Custom
+
+    const animationMap = animations[id as keyof PetAnimations] as [string, PetStatus<PetAnimation>][]
+    const custom = control.status.custom
+    currentCustomList.value = animationMap
+
+    currentAnimation.value = animationMap[custom] ? animationMap[custom][1] : undefined
+
   }
-},{immediate: true})
 
-watch(control.status,dispaly)
 
+
+}
 
 function dispaly() {
   const status = control.status
   const animation = currentAnimation.value!
 
-  if (!animation[status.state]) animation[status.state] = (isSingle.value ? [] : {}) as PetAnimation
+  if (animation === undefined) return player.reset()
+
+  if (!animation[status.state]) animation[status.state] = ((!isSingle.value ? {} : []) as PetAnimation)
 
   let path
   if (isSingle.value) {
@@ -105,7 +137,7 @@ function dispaly() {
     path = loop[status.random]
   }
 
-  if(path) player.play(path)
+  if (path) player.play(path)
   else player.reset()
 }
 
@@ -113,15 +145,16 @@ function dispaly() {
 
 
 async function setImagesFolders() {
+
+  const animation = currentAnimation.value!
+  if (!animation) return
+
   const paths = await dialog.open({
     directory: true,
     multiple: true,
   }) as string[] || []
 
   const status = control.status
-  const animation = currentAnimation.value!
-
-  // if (!animation[status.state]) animation[status.state] = (isSingle.value ? [] : {}) as PetAnimation
 
   if (isSingle.value) {
     (animation[status.state]! as PetAnimationSingle) = paths
@@ -129,7 +162,7 @@ async function setImagesFolders() {
     const loop = animation[status.state]! as PetAnimationLoop
     loop[status.mode] = paths
   }
-  
+
   dispaly()
 }
 </script>

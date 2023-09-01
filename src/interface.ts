@@ -79,11 +79,11 @@ export interface PetAnimations {
   default: PetStatus<PetAnimationSingle>,
   start: PetStatus<PetAnimationSingle>,
   shutdown: PetStatus<PetAnimationSingle>,
-  raisedStatic: PetStatus<PetAnimationSingle>,
+  raisedStatic: PetStatus<PetAnimationLoop>,
 
   music: PetStatus<PetAnimationLoop>,
   sleep: PetStatus<PetAnimationLoop>,
-  raisedDynamic: PetStatus<PetAnimationLoop>,
+  raisedDynamic: PetStatus<PetAnimationSingle>,
 
   switchUp: PetStatus<PetAnimationSingle>,
   switchDown: PetStatus<PetAnimationSingle>,
@@ -106,9 +106,9 @@ export interface PetAnimations {
   eatFront: PetStatus<PetAnimationSingle>,
   eatBack: PetStatus<PetAnimationSingle>,
   
-  move: Record<string, PetStatus<PetAnimationLoop>>,
-  idel: Record<string, PetStatus<PetAnimationLoop>>,
-  work: Record<string, PetStatus<PetAnimationLoop>>,
+  move: [string, PetStatus<PetAnimationLoop>][],
+  idel: [string, PetStatus<PetAnimationLoop>][],
+  work: [string, PetStatus<PetAnimationLoop>][],
 }
 
 

@@ -75,12 +75,13 @@ impl Build for Info {
             println!("Create food image folder");
             fs::create_dir(builder.food.clone()).unwrap();
 
-            println!("Write food/0.lps");
             let path = path.join("food");
             let mut text = String::new();
             for food in self.foods.iter() {
-                text += &food.build(builder).unwrap();
+              text += &food.build(builder).unwrap();
             }
+
+            println!("Write food/0.lps & ");
             fs::create_dir(&path).unwrap();
             fs::write(path.join("0.lps"), text).unwrap();
         }
@@ -153,7 +154,13 @@ impl Build for Info {
 }
 
 impl Build for Food {
-    fn build(&self, _: &mut Builder) -> Option<String> {
+    fn build(&self, builder: &mut Builder) -> Option<String> {
+
+
+      println!("Copy food/{}.png",self.name);
+      let output = builder.food.join(format!("{}.png",self.name));
+      fs::copy(&self.image, output).unwrap();
+
         let mut values = String::new();
         push_value(&mut values, "price", self.price);
         push_value(&mut values, "Exp", self.exp);
@@ -415,6 +422,19 @@ impl Build for Pet {
                 fs::copy(file.path(), to.join(index.to_string() + "_100.png")).unwrap();
             }
         }
+
+        //
+        fn concat_layer(path: PathBuf){
+          let front = path.join("front");
+          let back = path.join("back");
+          
+          let front = fs::read_dir(front).unwrap();
+          let back = fs::read_dir(back).unwrap();
+          
+          path.join("eat/front");
+          path.join("eat/back");
+        } 
+        //
 
         None
     }

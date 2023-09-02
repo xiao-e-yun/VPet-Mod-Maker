@@ -81,7 +81,7 @@ impl Build for Info {
               text += &food.build(builder).unwrap();
             }
 
-            println!("Write food/0.lps & ");
+            println!("Write food/0.lps");
             fs::create_dir(&path).unwrap();
             fs::write(path.join("0.lps"), text).unwrap();
         }
